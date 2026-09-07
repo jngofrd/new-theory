@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New Theory</title>
+<meta name="description" content="New Theory">
+<style>
+  :root{
+    --bg: #05070a;
+    --bg-soft: #0a0e14;
+    --line-bright: #4fd8ff;
+    --line-dim: #1c3a46;
+    --text: #eef6f8;
+    --text-dim: #93a4ab;
+    --accent: #4fd8ff;
+  }
+  *{ box-sizing: border-box; }
+  html,body{
+    margin:0;
+    padding:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    overflow-x:hidden;
+  }
+
+  /* ---------- Hero ---------- */
+  .hero{
+    position:relative;
+    width:100%;
+    height:100vh;
+    min-height:560px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+  }
+  #globe-canvas{
+    position:absolute;
+    top:0; left:0;
+    width:100%;
+    height:100%;
+    display:block;
+  }
+  .hero-content{
+    position:relative;
+    z-index:2;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    padding:0 24px;
+    pointer-events:none;
+  }
+  .hero-vignette{
+    position:absolute;
+    top:0; left:0;
+    width:100%;
+    height:100%;
+    z-index:1;
+    pointer-events:none;
+    background: radial-gradient(closest-side, rgba(5,7,10,0.82) 0%, rgba(5,7,10,0.45) 45%, rgba(5,7,10,0) 72%);
+  }
+  .logo{
+    width:min(360px, 60vw);
+    height:auto;
+    filter: drop-shadow(0 0 24px rgba(79,216,255,0.35));
+  }
+  .tagline{
+    margin-top:18px;
+    font-size:14px;
+    letter-spacing:0.28em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+  }
+  .scroll-cue{
+    position:absolute;
+    bottom:28px;
+    left:50%;
+    transform:translateX(-50%);
+    z-index:2;
+    width:1px;
+    height:40px;
+    background:linear-gradient(to bottom, transparent, var(--line-bright));
+    opacity:0.6;
+    animation: pulse-cue 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse-cue{
+    0%,100%{ opacity:0.2; }
+    50%{ opacity:0.8; }
+  }
+
+  /* ---------- Video section ---------- */
+  .section{
+    max-width:960px;
+    margin:0 auto;
+    padding:96px 24px;
+  }
+  .video-wrap{
+    position:relative;
+    width:100%;
+    padding-top:56.25%; /* 16:9 */
+    background:var(--bg-soft);
+    border:1px solid var(--line-dim);
+    border-radius:4px;
+    overflow:hidden;
+    box-shadow: 0 0 40px rgba(79,216,255,0.06);
+  }
+  .video-wrap iframe{
+    position:absolute;
+    top:0; left:0;
+    width:100%;
+    height:100%;
+    border:0;
+  }
+
+  /* ---------- Contact section ---------- */
+  .contact-section{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    padding-bottom:140px;
+  }
+  .contact-heading{
+    font-size:13px;
+    letter-spacing:0.28em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    margin-bottom:22px;
+  }
+  .contact-btn{
+    display:inline-block;
+    padding:16px 44px;
+    border:1px solid var(--accent);
+    border-radius:999px;
+    color:var(--accent);
+    text-decoration:none;
+    font-size:14px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    transition: background 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .contact-btn:hover{
+    background:var(--accent);
+    color:#05070a;
+    box-shadow:0 0 30px rgba(79,216,255,0.45);
+  }
+
+  footer{
+    text-align:center;
+    padding:28px 24px 40px;
+    font-size:12px;
+    color:var(--text-dim);
+    letter-spacing:0.08em;
+  }
+</style>
+</head>
+<body>
+
+  <section class="hero">
+    <canvas id="globe-canvas"></canvas>
+    <div class="hero-vignette"></div>
+    <div class="hero-content">
+      <img class="logo" src="assets/logo.png" alt="New Theory">
+    </div>
+    <div class="scroll-cue"></div>
+  </section>
+
+  <section class="section">
+    <div class="video-wrap">
+      <!-- TODO: replace VIDEO_ID_HERE with the real YouTube video ID before launch -->
+      <iframe
+        src="https://www.youtube.com/embed/VIDEO_ID_HERE"
+        title="New Theory"
+        loading="lazy"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowfullscreen>
+      </iframe>
+    </div>
+  </section>
+
+  <section class="contact-section">
+    <div class="contact-heading">Get in touch</div>
+    <!-- TODO: replace with the real contact address before launch -->
+    <a class="contact-btn" href="mailto:hello@newtheory.world">Contact</a>
+  </section>
+
+  <footer>&copy; <span id="year"></span> New Theory</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  (function(){
+    const canvas = document.getElementById('globe-canvas');
+    const hero = document.querySelector('.hero');
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+
+    const globe = new THREE.Group();
+    scene.add(globe);
+
+    const RADIUS = 2;
+
+    function latLonToVector3(lat, lon, radius){
+      const phi = (90 - lat) * (Math.PI / 180);
+      const theta = (lon + 180) * (Math.PI / 180);
+      return new THREE.Vector3(
+        -radius * Math.sin(phi) * Math.cos(theta),
+        radius * Math.cos(phi),
+        radius * Math.sin(phi) * Math.sin(theta)
+      );
+    }
+
+    // Faint lat/long graticule for the classic "wireframe" grid feel
+    function buildGraticule(){
+      const dimMat = new THREE.LineBasicMaterial({ color: 0x1c3a46, transparent:true, opacity:0.55 });
+      const group = new THREE.Group();
+
+      for (let lat = -80; lat <= 80; lat += 20) {
+        const pts = [];
+        for (let lon = -180; lon <= 180; lon += 4) {
+          pts.push(latLonToVector3(lat, lon, RADIUS));
+        }
+        const geo = new THREE.BufferGeometry().setFromPoints(pts);
+        group.add(new THREE.Line(geo, dimMat));
+      }
+      for (let lon = -180; lon < 180; lon += 20) {
+        const pts = [];
+        for (let lat = -90; lat <= 90; lat += 4) {
+          pts.push(latLonToVector3(lat, lon, RADIUS));
+        }
+        const geo = new THREE.BufferGeometry().setFromPoints(pts);
+        group.add(new THREE.Line(geo, dimMat));
+      }
+      return group;
+    }
+
+    globe.add(buildGraticule());
+
+    // Accurate coastlines from real-world land geometry (Natural Earth 110m via world-atlas)
+    function ringToLineLoop(ring, material){
+      const pts = ring.map(([lon, lat]) => latLonToVector3(lat, lon, RADIUS * 1.001));
+      const geo = new THREE.BufferGeometry().setFromPoints(pts);
+      return new THREE.LineLoop(geo, material);
+    }
+
+    function addLandOutlines(topology){
+      const landMat = new THREE.LineBasicMaterial({ color: 0x4fd8ff, transparent:true, opacity:0.9 });
+      const landGeo = topojson.feature(topology, topology.objects.land);
+      const group = new THREE.Group();
+
+      landGeo.features.forEach(feature => {
+        const geom = feature.geometry;
+        if (!geom) return;
+        const polygons = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates;
+        polygons.forEach(polygon => {
+          polygon.forEach(ring => {
+            group.add(ringToLineLoop(ring, landMat));
+          });
+        });
+      });
+
+      globe.add(group);
+    }
+
+    fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json')
+      .then(res => res.json())
+      .then(addLandOutlines)
+      .catch(() => { /* offline fallback: graticule alone still reads as a wireframe globe */ });
+
+    function resize(){
+      const w = hero.clientWidth;
+      const h = hero.clientHeight;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      // Pull back further on narrow/portrait viewports so the globe never
+      // overwhelms the frame, and keep it comfortably inset on wide ones.
+      camera.position.z = 6.4 / Math.min(camera.aspect, 1) ** 0.5;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function animate(){
+      if (!prefersReducedMotion) {
+        globe.rotation.y += 0.0016;
+      }
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+    animate();
+  })();
+</script>
+</body>
+</html>
