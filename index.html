@@ -220,11 +220,11 @@
       );
     }
 
-    // Accurate coastlines from real-world land geometry (Natural Earth 10m via world-atlas — fine
-    // enough to include small islands, e.g. across the Pacific). At this resolution there are
-    // hundreds of thousands of line segments, so they're (a) merged into one LineSegments buffer
-    // instead of one Object3D each, and (b) built a bounded batch per animation frame instead of
-    // all at once, so this never blocks the main thread for multiple seconds in one go.
+    // Accurate coastlines from real-world land geometry (Natural Earth 50m via world-atlas — a step
+    // down from the finest 10m data for a faster load, while still keeping most small islands).
+    // There are still tens of thousands of line segments, so they're (a) merged into one
+    // LineSegments buffer instead of one Object3D each, and (b) built in a bounded batch per
+    // animation frame instead of all at once, so this can't block the main thread on load.
     function addLandOutlines(topology){
       // mesh() (rather than feature()) hands back the coastline as plain open
       // polylines — no polygon-ring bookkeeping to redo on our end.
@@ -272,7 +272,7 @@
       buildStep();
     }
 
-    fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-10m.json')
+    fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-50m.json')
       .then(res => res.json())
       .then(addLandOutlines)
       .catch(() => { /* offline fallback: an empty globe is still framed correctly */ });
@@ -290,8 +290,52 @@
     window.addEventListener('resize', resize);
     resize();
 
-    function animate(){
+    // ---- Drag to rotate ----
+    // Auto-rotation pauses the moment a viewer grabs the globe, and quietly
+    // resumes a couple of seconds after they let go.
+    let isDragging = false;
+    let autoRotate = true;
+    let resumeTimer = null;
+    const lastPointer = { x: 0, y: 0 };
+    const DRAG_SENSITIVITY = 0.005;
+    const AUTO_RESUME_DELAY = 2500;
+
+    canvas.style.cursor = 'grab';
+    canvas.style.touchAction = 'none';
+
+    canvas.addEventListener('pointerdown', (e) => {
+      isDragging = true;
+      autoRotate = false;
+      if (resumeTimer) clearTimeout(resumeTimer);
+      lastPointer.x = e.clientX;
+      lastPointer.y = e.clientY;
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* not all pointer sources support capture */ }
+      canvas.style.cursor = 'grabbing';
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!isDragging) return;
+      const dx = e.clientX - lastPointer.x;
+      const dy = e.clientY - lastPointer.y;
+      lastPointer.x = e.clientX;
+      lastPointer.y = e.clientY;
+      globe.rotation.y += dx * DRAG_SENSITIVITY;
+      globe.rotation.x = Math.max(-0.9, Math.min(0.9, globe.rotation.x + dy * DRAG_SENSITIVITY));
+    });
+
+    function endDrag(){
+      if (!isDragging) return;
+      isDragging = false;
+      canvas.style.cursor = 'grab';
       if (!prefersReducedMotion) {
+        resumeTimer = setTimeout(() => { autoRotate = true; }, AUTO_RESUME_DELAY);
+      }
+    }
+    canvas.addEventListener('pointerup', endDrag);
+    canvas.addEventListener('pointercancel', endDrag);
+
+    function animate(){
+      if (!prefersReducedMotion && autoRotate) {
         globe.rotation.y += 0.0008;
       }
       renderer.render(scene, camera);
