@@ -220,33 +220,59 @@
       );
     }
 
-    // Accurate coastlines from real-world land geometry (Natural Earth 110m via world-atlas)
-    function ringToLineLoop(ring, material){
-      const pts = ring.map(([lon, lat]) => latLonToVector3(lat, lon, RADIUS * 1.001));
-      const geo = new THREE.BufferGeometry().setFromPoints(pts);
-      return new THREE.LineLoop(geo, material);
-    }
-
+    // Accurate coastlines from real-world land geometry (Natural Earth 10m via world-atlas — fine
+    // enough to include small islands, e.g. across the Pacific). At this resolution there are
+    // hundreds of thousands of line segments, so they're (a) merged into one LineSegments buffer
+    // instead of one Object3D each, and (b) built a bounded batch per animation frame instead of
+    // all at once, so this never blocks the main thread for multiple seconds in one go.
     function addLandOutlines(topology){
+      // mesh() (rather than feature()) hands back the coastline as plain open
+      // polylines — no polygon-ring bookkeeping to redo on our end.
+      const lines = topojson.mesh(topology, topology.objects.land).coordinates;
+
+      let segCount = 0;
+      lines.forEach(line => { segCount += Math.max(0, line.length - 1); });
+
+      const positions = new Float32Array(segCount * 2 * 3);
+      const attr = new THREE.BufferAttribute(positions, 3);
+      attr.setUsage(THREE.DynamicDrawUsage);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', attr);
+      geo.setDrawRange(0, 0);
+
       const landMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent:true, opacity:0.85 });
-      const landGeo = topojson.feature(topology, topology.objects.land);
-      const group = new THREE.Group();
+      globe.add(new THREE.LineSegments(geo, landMat));
 
-      landGeo.features.forEach(feature => {
-        const geom = feature.geometry;
-        if (!geom) return;
-        const polygons = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates;
-        polygons.forEach(polygon => {
-          polygon.forEach(ring => {
-            group.add(ringToLineLoop(ring, landMat));
-          });
-        });
-      });
+      let lineIndex = 0, pointIndex = 0, vertCursor = 0;
+      const VERTS_PER_FRAME = 6000; // ~3000 segments/frame — comfortably sub-millisecond
 
-      globe.add(group);
+      function buildStep(){
+        let budget = VERTS_PER_FRAME;
+        while (lineIndex < lines.length && budget > 0) {
+          const line = lines[lineIndex];
+          while (pointIndex < line.length - 1 && budget > 0) {
+            const a = latLonToVector3(line[pointIndex][1], line[pointIndex][0], RADIUS * 1.001);
+            const b = latLonToVector3(line[pointIndex + 1][1], line[pointIndex + 1][0], RADIUS * 1.001);
+            const o = vertCursor * 3;
+            positions[o] = a.x; positions[o + 1] = a.y; positions[o + 2] = a.z;
+            positions[o + 3] = b.x; positions[o + 4] = b.y; positions[o + 5] = b.z;
+            vertCursor += 2;
+            pointIndex++;
+            budget -= 2;
+          }
+          if (pointIndex >= line.length - 1) {
+            lineIndex++;
+            pointIndex = 0;
+          }
+        }
+        attr.needsUpdate = true;
+        geo.setDrawRange(0, vertCursor);
+        if (lineIndex < lines.length) requestAnimationFrame(buildStep);
+      }
+      buildStep();
     }
 
-    fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json')
+    fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-10m.json')
       .then(res => res.json())
       .then(addLandOutlines)
       .catch(() => { /* offline fallback: an empty globe is still framed correctly */ });
