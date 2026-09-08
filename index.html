@@ -190,7 +190,6 @@
   <footer>&copy; <span id="year"></span> New Theory</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
 <script>
   document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -205,82 +204,12 @@
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
 
-    const globe = new THREE.Group();
-    scene.add(globe);
-
+    // Reference radius for the meteor's path and debris field (no globe
+    // is rendered — this just anchors where the "impact" is centered).
     const RADIUS = 2;
 
-    function latLonToVector3(lat, lon, radius){
-      const phi = (90 - lat) * (Math.PI / 180);
-      const theta = (lon + 180) * (Math.PI / 180);
-      return new THREE.Vector3(
-        -radius * Math.sin(phi) * Math.cos(theta),
-        radius * Math.cos(phi),
-        radius * Math.sin(phi) * Math.sin(theta)
-      );
-    }
-
-    // Faint lat/long graticule for the classic "wireframe" grid feel
-    function buildGraticule(){
-      const dimMat = new THREE.LineBasicMaterial({ color: 0x4d4d4d, transparent:true, opacity:0.5 });
-      const group = new THREE.Group();
-
-      for (let lat = -80; lat <= 80; lat += 20) {
-        const pts = [];
-        for (let lon = -180; lon <= 180; lon += 4) {
-          pts.push(latLonToVector3(lat, lon, RADIUS));
-        }
-        const geo = new THREE.BufferGeometry().setFromPoints(pts);
-        group.add(new THREE.Line(geo, dimMat));
-      }
-      for (let lon = -180; lon < 180; lon += 20) {
-        const pts = [];
-        for (let lat = -90; lat <= 90; lat += 4) {
-          pts.push(latLonToVector3(lat, lon, RADIUS));
-        }
-        const geo = new THREE.BufferGeometry().setFromPoints(pts);
-        group.add(new THREE.Line(geo, dimMat));
-      }
-      return group;
-    }
-
-    globe.add(buildGraticule());
-
-    // Accurate coastlines from real-world land geometry (Natural Earth 110m via world-atlas)
-    function ringToLineLoop(ring, material){
-      const pts = ring.map(([lon, lat]) => latLonToVector3(lat, lon, RADIUS * 1.001));
-      const geo = new THREE.BufferGeometry().setFromPoints(pts);
-      return new THREE.LineLoop(geo, material);
-    }
-
-    function addLandOutlines(topology){
-      const landMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent:true, opacity:0.85 });
-      const landGeo = topojson.feature(topology, topology.objects.land);
-      const group = new THREE.Group();
-
-      landGeo.features.forEach(feature => {
-        const geom = feature.geometry;
-        if (!geom) return;
-        const polygons = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates;
-        polygons.forEach(polygon => {
-          polygon.forEach(ring => {
-            group.add(ringToLineLoop(ring, landMat));
-          });
-        });
-      });
-
-      globe.add(group);
-    }
-
-    fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json')
-      .then(res => res.json())
-      .then(addLandOutlines)
-      .catch(() => { /* offline fallback: graticule alone still reads as a wireframe globe */ });
-
-    // ---- Meteor impact: a trail punched clean through the globe, with
-    // geometric debris frozen mid-blast around the exit points. The trail
-    // and debris live in the scene (not the globe group) so they hold
-    // still in space while the planet keeps turning underneath them.
+    // ---- Meteor impact: a trail through empty space, with geometric
+    // debris frozen mid-blast around its two marked points.
     const impactAxis = new THREE.Vector3(1, -0.4, 0).normalize();
 
     function buildMeteorTrail(){
@@ -291,7 +220,7 @@
       trail.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), impactAxis);
       scene.add(trail);
 
-      // Bright entry/exit points where the trail punches the globe surface
+      // Bright markers at each end of the trail's visible core
       [1, -1].forEach(sign => {
         const glow = new THREE.Mesh(
           new THREE.SphereGeometry(0.09, 10, 10),
@@ -409,7 +338,6 @@
 
     function animate(){
       if (!prefersReducedMotion) {
-        globe.rotation.y += 0.0016;
         debris.forEach(d => {
           d.mesh.rotation.x += d.spin.x;
           d.mesh.rotation.y += d.spin.y;
