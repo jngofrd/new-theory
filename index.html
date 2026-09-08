@@ -190,6 +190,7 @@
   <footer>&copy; <span id="year"></span> New Theory</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
 <script>
   document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -204,133 +205,60 @@
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
 
-    // Reference radius for the meteor's path and debris field (no globe
-    // is rendered — this just anchors where the "impact" is centered).
+    const globe = new THREE.Group();
+    scene.add(globe);
+
     const RADIUS = 2;
 
-    // ---- Meteor impact: a trail through empty space, with geometric
-    // debris frozen mid-blast around its two marked points.
-    const impactAxis = new THREE.Vector3(1, -0.4, 0).normalize();
-
-    function buildMeteorTrail(){
-      const length = 6;
-      const geo = new THREE.CylinderGeometry(0.045, 0.045, length, 6, 1, true);
-      const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe:true });
-      const trail = new THREE.Mesh(geo, mat);
-      trail.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), impactAxis);
-      scene.add(trail);
-
-      // Bright markers at each end of the trail's visible core
-      [1, -1].forEach(sign => {
-        const glow = new THREE.Mesh(
-          new THREE.SphereGeometry(0.09, 10, 10),
-          new THREE.MeshBasicMaterial({ color: 0xffffff })
-        );
-        glow.position.copy(impactAxis).multiplyScalar(RADIUS * sign);
-        scene.add(glow);
-      });
+    function latLonToVector3(lat, lon, radius){
+      const phi = (90 - lat) * (Math.PI / 180);
+      const theta = (lon + 180) * (Math.PI / 180);
+      return new THREE.Vector3(
+        -radius * Math.sin(phi) * Math.cos(theta),
+        radius * Math.cos(phi),
+        radius * Math.sin(phi) * Math.sin(theta)
+      );
     }
-    buildMeteorTrail();
 
-    const debris = [];
-    function buildDebris(){
-      const shapeMakers = [
-        () => new THREE.TetrahedronGeometry(1),
-        () => new THREE.BoxGeometry(1, 1, 1),
-        () => new THREE.OctahedronGeometry(1),
-        () => new THREE.IcosahedronGeometry(1),
-      ];
-      const count = 130;
-
-      // Two axes perpendicular to the impact axis, used to scatter debris
-      // outward in a cone around each end of it.
-      const arbitrary = Math.abs(impactAxis.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
-      const perpA = new THREE.Vector3().crossVectors(impactAxis, arbitrary).normalize();
-      const perpB = new THREE.Vector3().crossVectors(impactAxis, perpA).normalize();
-
-      for (let i = 0; i < count; i++) {
-        const sign = Math.random() < 0.5 ? 1 : -1;
-        const dist = RADIUS + 0.3 + Math.pow(Math.random(), 1.6) * 4.2;
-        const spread = Math.pow(Math.random(), 0.6) * dist * 0.42;
-        const angle = Math.random() * Math.PI * 2;
-
-        const pos = impactAxis.clone().multiplyScalar(dist * sign)
-          .add(perpA.clone().multiplyScalar(Math.cos(angle) * spread))
-          .add(perpB.clone().multiplyScalar(Math.sin(angle) * spread));
-
-        const geo = shapeMakers[Math.floor(Math.random() * shapeMakers.length)]();
-        const mat = new THREE.MeshBasicMaterial({
-          color: 0xffffff,
-          wireframe: true,
-          transparent: true,
-          opacity: 0.35 + Math.random() * 0.5,
-        });
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.position.copy(pos);
-        mesh.scale.setScalar(0.06 + Math.random() * 0.22);
-        mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-        scene.add(mesh);
-
-        debris.push({
-          mesh,
-          spin: new THREE.Vector3(
-            (Math.random() - 0.5) * 0.01,
-            (Math.random() - 0.5) * 0.01,
-            (Math.random() - 0.5) * 0.01
-          ),
-        });
-      }
-
-      // Guarantee a close, larger cluster right at each impact point so
-      // both ends read clearly even on narrow/portrait viewports, where
-      // the wider random field can end up mostly out of frame.
-      [1, -1].forEach(sign => {
-        for (let i = 0; i < 9; i++) {
-          const dist = RADIUS + 0.25 + Math.random() * 0.9;
-          const spread = Math.random() * dist * 0.3;
-          const angle = Math.random() * Math.PI * 2;
-
-          const pos = impactAxis.clone().multiplyScalar(dist * sign)
-            .add(perpA.clone().multiplyScalar(Math.cos(angle) * spread))
-            .add(perpB.clone().multiplyScalar(Math.sin(angle) * spread));
-
-          const geo = shapeMakers[Math.floor(Math.random() * shapeMakers.length)]();
-          const mat = new THREE.MeshBasicMaterial({
-            color: 0xffffff,
-            wireframe: true,
-            transparent: true,
-            opacity: 0.55 + Math.random() * 0.4,
-          });
-          const mesh = new THREE.Mesh(geo, mat);
-          mesh.position.copy(pos);
-          mesh.scale.setScalar(0.14 + Math.random() * 0.16);
-          mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-          scene.add(mesh);
-
-          debris.push({
-            mesh,
-            spin: new THREE.Vector3(
-              (Math.random() - 0.5) * 0.01,
-              (Math.random() - 0.5) * 0.01,
-              (Math.random() - 0.5) * 0.01
-            ),
-          });
-        }
-      });
+    // Accurate coastlines from real-world land geometry (Natural Earth 110m via world-atlas)
+    function ringToLineLoop(ring, material){
+      const pts = ring.map(([lon, lat]) => latLonToVector3(lat, lon, RADIUS * 1.001));
+      const geo = new THREE.BufferGeometry().setFromPoints(pts);
+      return new THREE.LineLoop(geo, material);
     }
-    buildDebris();
+
+    function addLandOutlines(topology){
+      const landMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent:true, opacity:0.85 });
+      const landGeo = topojson.feature(topology, topology.objects.land);
+      const group = new THREE.Group();
+
+      landGeo.features.forEach(feature => {
+        const geom = feature.geometry;
+        if (!geom) return;
+        const polygons = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates;
+        polygons.forEach(polygon => {
+          polygon.forEach(ring => {
+            group.add(ringToLineLoop(ring, landMat));
+          });
+        });
+      });
+
+      globe.add(group);
+    }
+
+    fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json')
+      .then(res => res.json())
+      .then(addLandOutlines)
+      .catch(() => { /* offline fallback: an empty globe is still framed correctly */ });
 
     function resize(){
       const w = hero.clientWidth;
       const h = hero.clientHeight;
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
-      // Keep a fixed minimum world-space half-extent in view on both axes
-      // (so the meteor's entry/exit points and debris stay framed even on
-      // narrow/portrait screens), while never zooming in past the desktop
-      // baseline on wide screens.
-      const minHalfExtent = 2.8;
-      camera.position.z = Math.max(6.4, minHalfExtent / (Math.tan(22.5 * Math.PI / 180) * Math.min(1, camera.aspect)));
+      // Pull back further on narrow/portrait viewports so the globe never
+      // overwhelms the frame, and keep it comfortably inset on wide ones.
+      camera.position.z = 6.4 / Math.min(camera.aspect, 1) ** 0.5;
       camera.updateProjectionMatrix();
     }
     window.addEventListener('resize', resize);
@@ -338,11 +266,7 @@
 
     function animate(){
       if (!prefersReducedMotion) {
-        debris.forEach(d => {
-          d.mesh.rotation.x += d.spin.x;
-          d.mesh.rotation.y += d.spin.y;
-          d.mesh.rotation.z += d.spin.z;
-        });
+        globe.rotation.y += 0.0016;
       }
       renderer.render(scene, camera);
       requestAnimationFrame(animate);
