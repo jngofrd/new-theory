@@ -299,15 +299,33 @@
     const DRAG_SENSITIVITY = 0.005;
 
     canvas.style.cursor = 'grab';
-    canvas.style.touchAction = 'none';
+    // Left as the default (rather than touch-action:none) since touch drags
+    // are only claimed selectively below, inside a central hit region — the
+    // canvas spans the full hero, and a phone viewer needs most of that area
+    // to still scroll the page normally.
+    canvas.style.touchAction = 'manipulation';
+
+    // On touch, only the central portion roughly covering the visible globe
+    // starts a drag; everywhere else on the canvas passes the touch through
+    // as a normal scroll. Mouse users can grab from anywhere — a click-drag
+    // never fights with page scrolling the way touch does.
+    function withinGlobeHitRegion(clientX, clientY){
+      const rect = canvas.getBoundingClientRect();
+      const radius = Math.min(rect.width, rect.height) * 0.32;
+      const dx = clientX - (rect.left + rect.width / 2);
+      const dy = clientY - (rect.top + rect.height / 2);
+      return dx * dx + dy * dy <= radius * radius;
+    }
 
     canvas.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'mouse' && !withinGlobeHitRegion(e.clientX, e.clientY)) return;
       isDragging = true;
       autoRotate = false;
       lastPointer.x = e.clientX;
       lastPointer.y = e.clientY;
       try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* not all pointer sources support capture */ }
       canvas.style.cursor = 'grabbing';
+      e.preventDefault();
     });
 
     canvas.addEventListener('pointermove', (e) => {
