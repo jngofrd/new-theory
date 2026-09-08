@@ -291,14 +291,12 @@
     resize();
 
     // ---- Drag to rotate ----
-    // Auto-rotation pauses the moment a viewer grabs the globe, and quietly
-    // resumes a couple of seconds after they let go.
+    // Auto-rotation pauses the moment a viewer grabs the globe, and picks
+    // straight back up the instant they let go.
     let isDragging = false;
     let autoRotate = true;
-    let resumeTimer = null;
     const lastPointer = { x: 0, y: 0 };
     const DRAG_SENSITIVITY = 0.005;
-    const AUTO_RESUME_DELAY = 2500;
 
     canvas.style.cursor = 'grab';
     canvas.style.touchAction = 'none';
@@ -306,7 +304,6 @@
     canvas.addEventListener('pointerdown', (e) => {
       isDragging = true;
       autoRotate = false;
-      if (resumeTimer) clearTimeout(resumeTimer);
       lastPointer.x = e.clientX;
       lastPointer.y = e.clientY;
       try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* not all pointer sources support capture */ }
@@ -327,9 +324,7 @@
       if (!isDragging) return;
       isDragging = false;
       canvas.style.cursor = 'grab';
-      if (!prefersReducedMotion) {
-        resumeTimer = setTimeout(() => { autoRotate = true; }, AUTO_RESUME_DELAY);
-      }
+      if (!prefersReducedMotion) autoRotate = true;
     }
     canvas.addEventListener('pointerup', endDrag);
     canvas.addEventListener('pointercancel', endDrag);
