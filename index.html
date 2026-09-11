@@ -5,9 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>New Theory</title>
 <meta name="description" content="New Theory">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg: #050505;
@@ -59,6 +56,7 @@
   .logo{
     width:min(360px, 60vw);
     height:auto;
+    filter: drop-shadow(0 0 24px rgba(255,255,255,0.3));
   }
   .tagline{
     margin-top:18px;
@@ -97,23 +95,7 @@
     background:var(--bg-soft);
     border-radius:4px;
     overflow:hidden;
-  }
-  .video-title{
-    text-align:center;
-    text-transform:uppercase;
-    font-family:'Bungee', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-    line-height:1.2;
-    margin-bottom:40px;
-  }
-  .video-title-main{
-    font-size: clamp(26px, 4.6vw, 52px);
-    letter-spacing:0.02em;
-  }
-  .video-title-sub{
-    font-size: clamp(15px, 2.2vw, 24px);
-    color:var(--text-dim);
-    margin-top:10px;
-    letter-spacing:0.08em;
+    box-shadow: 0 0 40px rgba(255,255,255,0.06);
   }
   .video-wrap iframe{
     position:absolute;
@@ -143,10 +125,6 @@
   </section>
 
   <section class="section">
-    <div class="video-title">
-      <div class="video-title-main">Ross Lowder - Snake Eyes</div>
-      <div class="video-title-sub">Music Video</div>
-    </div>
     <div class="video-wrap">
       <!-- TODO: replace VIDEO_ID_HERE with the real YouTube video ID before launch -->
       <iframe
