@@ -170,11 +170,11 @@
       );
     }
 
-    // Accurate coastlines from real-world land geometry (Natural Earth 50m via world-atlas — a step
-    // down from the finest 10m data for a faster load, while still keeping most small islands).
-    // There are still tens of thousands of line segments, so they're (a) merged into one
-    // LineSegments buffer instead of one Object3D each, and (b) built in a bounded batch per
-    // animation frame instead of all at once, so this can't block the main thread on load.
+    // Accurate coastlines from real-world land geometry (Natural Earth 10m via world-atlas — fine
+    // enough to include small islands, e.g. across the Pacific). At this resolution there are
+    // hundreds of thousands of line segments, so they're (a) merged into one LineSegments buffer
+    // instead of one Object3D each, and (b) built a bounded batch per animation frame instead of
+    // all at once, so this never blocks the main thread for multiple seconds in one go.
     function addLandOutlines(topology){
       // mesh() (rather than feature()) hands back the coastline as plain open
       // polylines — no polygon-ring bookkeeping to redo on our end.
@@ -222,7 +222,7 @@
       buildStep();
     }
 
-    fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-50m.json')
+    fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-10m.json')
       .then(res => res.json())
       .then(addLandOutlines)
       .catch(() => { /* offline fallback: an empty globe is still framed correctly */ });
